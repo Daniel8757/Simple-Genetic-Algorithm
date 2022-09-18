@@ -1,0 +1,22 @@
+# settings for the genetic algorithm
+default_mutation: 0.001
+default_crossover: 0.7
+default_size: 50
+max_runs: 1000
+elitism_number: 3 # top N get a free pass to next round
+
+crossover_type: "onepoint"
+selection_type: "elitism"
+
+# settings for maximize ones
+default_length_mones: 20
+fitness_type_mones: "uniform"
+
+# settings for Rastrigin
+default_length_rastrigin: 10 # will divide into chuncks of 5.12/(2^(num-1))
+max_fitness: 46
+
+#settings for testing
+remove_if_not_found: False # if the genome doesn't find the ideal genomes in max_runs, remove from data set
+datapoints_for_average: 10
+num_datapoints: 100
