@@ -13,7 +13,7 @@ default_length_mones: 20
 fitness_type_mones: "uniform"
 
 # settings for Rastrigin
-default_length_rastrigin: 10 # will divide into chuncks of 5.12/(2^(num-1))
+default_length_rastrigin: 9 # will divide into chuncks of 5.12/(2^(num-1))
 max_fitness: 46
 
 #settings for testing
