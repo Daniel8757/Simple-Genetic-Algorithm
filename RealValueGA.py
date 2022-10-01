@@ -1,6 +1,7 @@
 import numpy
 import random
 import math
+from sklearn import svm
 
 import yaml
 
@@ -136,25 +137,25 @@ class RealValueGA():
             #TODO: create a stopping condition
         return None
 
-class LinearRegression:
-    # xvals should be a list of lists
-    # yvals should be just a list
-    def normalize(self, xvals, yvals):
-        x_lambdas = []
-        # transformation for each xvals 
-        for i in range(len(xvals[0])):
-            xvals_one = [weight[i] for weight in xvals]
-            x_transform = lambda x : (x - min(xvals_one))/(max(xvals_one)-min(xvals_one))
-            x_lambdas.append(x_transform)
-        
-        x_transformations = []
-        for xval in xvals:
-            x_transformations.append([x_lambdas[j](xval[j]) for j in range(len(xval))])
-        
-        y_transform = lambda y : (y - min(yvals))/(max(yvals)-min(yvals))
-        y_transformation = [y_transform(one_y) for one_y in yvals]
-        return x_transformations, y_transformation
+# xvals should be a list of lists
+# yvals should be just a list
+def normalize(self, xvals, yvals):
+    x_lambdas = []
+    # transformation for each xvals 
+    for i in range(len(xvals[0])):
+        xvals_one = [weight[i] for weight in xvals]
+        x_transform = lambda x : (x - min(xvals_one))/(max(xvals_one)-min(xvals_one))
+        x_lambdas.append(x_transform)
+    
+    x_transformations = []
+    for xval in xvals:
+        x_transformations.append([x_lambdas[j](xval[j]) for j in range(len(xval))])
+    
+    y_transform = lambda y : (y - min(yvals))/(max(yvals)-min(yvals))
+    y_transformation = [y_transform(one_y) for one_y in yvals]
+    return x_transformations, y_transformation
 
+class LinearRegression:
     def loss(self, pred, actual):
         n = len(pred)
         squared_dist = sum([(pred[i]-actual[i])**2 for i in range(len(pred))])
@@ -163,7 +164,7 @@ class LinearRegression:
     def run(self, dimensions, xvals, yvals, size=DEFAULT_SIZE, population=None, max_generations=MAX_GENERATIONS, crossover_rate=DEFAULT_CROSSOVER, mutation_rate=DEFAULT_MUTATION, log=True):
         if not population:
             population = make_population_zeroweights(size, dimensions+1)
-        norm_xs, norm_ys = self.normalize(xvals, yvals)
+        norm_xs, norm_ys = normalize(xvals, yvals)
 
         def fitness(genome):
             pred = []
@@ -178,3 +179,35 @@ class LinearRegression:
         ga = RealValueGA(fitness, dimensions+1, crossover_rate, mutation_rate, log)
         ga.run(population, max_generations)
 
+class LogisticalRegression:
+    def loss(self, pred, actual):
+        loss_one = lambda a, p : -(p*math.log(a) + (1-p)*math.log(1-a)) if (0 < a and a < 1) else int(a == p)
+        return sum([loss_one(pred[i], actual[i]) for i in range(len(pred))])
+
+    def get_probability(self, params, datapoint):
+        return 1 / (1 + math.e**(sum([params[i]*datapoint[i] for i in range(len(datapoint))] + params[-1])))
+
+    def predict_values(self, params, datapoints):
+        pred = []
+        for point in datapoints:
+            pred.append(self.get_probability(params, point))
+        return pred
+    
+    def run(self, dimensions, xvals, yvals, size=DEFAULT_SIZE, population=None, max_generations=MAX_GENERATIONS, crossover_rate=DEFAULT_CROSSOVER, mutation_rate=DEFAULT_MUTATION, log=True):
+        if not population:
+            population = make_population_zeroweights(size, dimensions+1)
+        norm_xs, norm_ys = normalize(xvals, yvals)
+
+        def fitness(genome):
+            pred = self.predict_values(genome, norm_xs)
+            actual = norm_ys
+            loss_value = self.loss(pred, actual)
+
+            return 1/loss_value
+        
+        ga = RealValueGA(fitness, dimensions+1, crossover_rate, mutation_rate, log)
+        ga.run(population, max_generations)
+
+class SVM:
+    def run_linear():
+        def loss(self, pred,)
