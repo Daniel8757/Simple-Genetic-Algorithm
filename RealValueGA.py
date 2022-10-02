@@ -208,6 +208,3 @@ class LogisticalRegression:
         ga = RealValueGA(fitness, dimensions+1, crossover_rate, mutation_rate, log)
         ga.run(population, max_generations)
 
-class SVM:
-    def run_linear():
-        def loss(self, pred,)
