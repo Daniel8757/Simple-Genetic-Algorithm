@@ -1,9 +1,9 @@
 import numpy
 import random
 import math
-from sklearn import svm
 
 import yaml
+from copy import deepcopy
 
 with open('config.yaml') as f:
     configs = yaml.load(f, Loader=yaml.FullLoader)
@@ -20,11 +20,11 @@ def make_population_zeroweights(size, length):
     random_weight_num = size-zero_weight_num
     population = []
 
-    for i in range(random_weight_num):
+    for _ in range(random_weight_num):
         new_genome = [random.uniform(-1, 1) for _ in range(length)]
         population.append(new_genome)
 
-    for i in range(zero_weight_num):
+    for _ in range(zero_weight_num):
         new_genome = [0 for _ in range(length)]
         population.append(new_genome)
 
@@ -32,7 +32,7 @@ def make_population_zeroweights(size, length):
 
 
 class RealValueGA():
-    def __init__(self, fitness, data_length, crossover_rate=DEFAULT_CROSSOVER, mutation_rate=DEFAULT_MUTATION, log=True):
+    def __init__(self, fitness, data_length, crossover_rate=DEFAULT_CROSSOVER, mutation_rate=DEFAULT_MUTATION, gaussian_variance=GAUSSIAN_VARIANCE, log=True):
         # fitness function
         self.fitness = fitness 
         # population size
@@ -41,8 +41,10 @@ class RealValueGA():
         self.crossover_rate = crossover_rate
         # chance of a single gene mutation
         self.mutation_rate = mutation_rate
+        self.gaussian_variance = gaussian_variance
         # choice to print things to console
         self.log = log
+
 
     def log_print(self, to_output):
         if self.log:
@@ -72,7 +74,7 @@ class RealValueGA():
     def mutate(self, genome):
         for i in range(len(genome)):
             if random.random() < self.mutation_rate:
-                change = numpy.random.normal(scale=math.sqrt(GAUSSIAN_VARIANCE))
+                change = numpy.random.normal(scale=math.sqrt(self.gaussian_variance))
                 genome[i] += change
                 if genome[i] > 1:
                     genome[i] = 1
@@ -85,9 +87,9 @@ class RealValueGA():
         # edge case where the fitness of all pops are 0
         indexes = [i for i in range(len(population))]
         if not weights:
-            choice = numpy.random.choice(indexes), numpy.random.choice(indexes)
+            choice = [numpy.random.choice(indexes), numpy.random.choice(indexes)]
         else:
-            choice = numpy.random.choice(indexes, p=weights), numpy.random.choice(indexes, p=weights)
+            choice = [numpy.random.choice(indexes, p=weights), numpy.random.choice(indexes, p=weights)]
 
         return population[choice[0]], population[choice[1]]
 
@@ -114,7 +116,7 @@ class RealValueGA():
             if random.random() < self.crossover_rate:
                 new_p1, new_p2 = self.uniform_crossover(p1, p2)
             else:
-                new_p1, new_p2 = p1, p2
+                new_p1, new_p2 = deepcopy(p1), deepcopy(p2)
                 
             new_p1 = self.mutate(new_p1)
             new_p2 = self.mutate(new_p2)
@@ -129,17 +131,28 @@ class RealValueGA():
         self.log_print("Genome length: {}".format(self.data_length))
         curr_population = population
         for generation in range(max_generations):
+            print("generation: {}".format(generation))
+            print("best fitness: {}".format(self.fitness(max(curr_population, key=self.fitness))))
+            print("average fitness: {}".format(self.evaluate_fitness(curr_population)))
             self.log_print("Generation {}: average fitness {}, best fitness {}".format(
                 generation, 
                 self.evaluate_fitness(curr_population), max(curr_population, key=self.fitness))
             )
             curr_population = self.fitness_proportion(curr_population)
-            #TODO: create a stopping condition
-        return None
+
+        # returns max fitness
+        return self.fitness(max(curr_population, key=self.fitness))
 
 # xvals should be a list of lists
 # yvals should be just a list
-def normalize(self, xvals, yvals):
+def normalize(xvals, yvals):
+    x_transformations = normalize_x(xvals)
+    
+    y_transform = lambda y : (y - min(yvals))/(max(yvals)-min(yvals))
+    y_transformation = [y_transform(one_y) for one_y in yvals]
+    return x_transformations, y_transformation
+
+def normalize_x(xvals):
     x_lambdas = []
     # transformation for each xvals 
     for i in range(len(xvals[0])):
@@ -150,10 +163,7 @@ def normalize(self, xvals, yvals):
     x_transformations = []
     for xval in xvals:
         x_transformations.append([x_lambdas[j](xval[j]) for j in range(len(xval))])
-    
-    y_transform = lambda y : (y - min(yvals))/(max(yvals)-min(yvals))
-    y_transformation = [y_transform(one_y) for one_y in yvals]
-    return x_transformations, y_transformation
+    return x_transformations
 
 class LinearRegression:
     def loss(self, pred, actual):
@@ -177,7 +187,8 @@ class LinearRegression:
             return 1/loss_value
         
         ga = RealValueGA(fitness, dimensions+1, crossover_rate, mutation_rate, log)
-        ga.run(population, max_generations)
+        max_fitness = ga.run(population, max_generations)
+        return max_fitness
 
 class LogisticalRegression:
     def loss(self, pred, actual):
@@ -185,7 +196,7 @@ class LogisticalRegression:
         return sum([loss_one(pred[i], actual[i]) for i in range(len(pred))])
 
     def get_probability(self, params, datapoint):
-        return 1 / (1 + math.e**(sum([params[i]*datapoint[i] for i in range(len(datapoint))] + params[-1])))
+        return 1 / (1 + math.e**(sum([params[i]*datapoint[i] for i in range(len(datapoint))]) + params[-1]))
 
     def predict_values(self, params, datapoints):
         pred = []
@@ -193,18 +204,18 @@ class LogisticalRegression:
             pred.append(self.get_probability(params, point))
         return pred
     
-    def run(self, dimensions, xvals, yvals, size=DEFAULT_SIZE, population=None, max_generations=MAX_GENERATIONS, crossover_rate=DEFAULT_CROSSOVER, mutation_rate=DEFAULT_MUTATION, log=True):
+    def run(self, dimensions, xvals, yvals, size=DEFAULT_SIZE, population=None, max_generations=MAX_GENERATIONS, crossover_rate=DEFAULT_CROSSOVER, mutation_rate=DEFAULT_MUTATION, gaussian_variance=GAUSSIAN_VARIANCE, log=True):
         if not population:
             population = make_population_zeroweights(size, dimensions+1)
-        norm_xs, norm_ys = normalize(xvals, yvals)
+        norm_xs = normalize_x(xvals)
 
         def fitness(genome):
             pred = self.predict_values(genome, norm_xs)
-            actual = norm_ys
+            actual = yvals
             loss_value = self.loss(pred, actual)
 
             return 1/loss_value
         
-        ga = RealValueGA(fitness, dimensions+1, crossover_rate, mutation_rate, log)
-        ga.run(population, max_generations)
-
+        ga = RealValueGA(fitness, dimensions+1, crossover_rate, mutation_rate, gaussian_variance, log)
+        max_fitness = ga.run(population, max_generations)
+        return max_fitness
