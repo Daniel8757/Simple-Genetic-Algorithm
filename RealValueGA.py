@@ -131,9 +131,11 @@ class RealValueGA():
         self.log_print("Genome length: {}".format(self.data_length))
         curr_population = population
         for generation in range(max_generations):
-            print("generation: {}".format(generation))
-            print("best fitness: {}".format(self.fitness(max(curr_population, key=self.fitness))))
-            print("average fitness: {}".format(self.evaluate_fitness(curr_population)))
+            if generation % 20 == 0:
+                print("generation: {}".format(generation))
+                print("best fitness: {}".format(self.fitness(max(curr_population, key=self.fitness))))
+                print("average fitness: {}".format(self.evaluate_fitness(curr_population)))
+            
             self.log_print("Generation {}: average fitness {}, best fitness {}".format(
                 generation, 
                 self.evaluate_fitness(curr_population), max(curr_population, key=self.fitness))
@@ -141,7 +143,7 @@ class RealValueGA():
             curr_population = self.fitness_proportion(curr_population)
 
         # returns max fitness
-        return self.fitness(max(curr_population, key=self.fitness))
+        return self.fitness(max(curr_population, key=self.fitness)), max(curr_population, key=self.fitness)
 
 # xvals should be a list of lists
 # yvals should be just a list
@@ -153,16 +155,16 @@ def normalize(xvals, yvals):
     return x_transformations, y_transformation
 
 def normalize_x(xvals):
-    x_lambdas = []
-    # transformation for each xvals 
+    max_and_min = []
+    # transformation for each xvals
     for i in range(len(xvals[0])):
         xvals_one = [weight[i] for weight in xvals]
-        x_transform = lambda x : (x - min(xvals_one))/(max(xvals_one)-min(xvals_one))
-        x_lambdas.append(x_transform)
+        max_and_min.append((max(xvals_one), min(xvals_one)))
     
     x_transformations = []
     for xval in xvals:
-        x_transformations.append([x_lambdas[j](xval[j]) for j in range(len(xval))])
+        x_transformations.append([(xval[j]-max_and_min[j][1])/(max_and_min[j][0]-max_and_min[j][1]) for j in range(len(xval))])
+
     return x_transformations
 
 class LinearRegression:
@@ -203,8 +205,16 @@ class LogisticalRegression:
         for point in datapoints:
             pred.append(self.get_probability(params, point))
         return pred
+
+    def get_accuracy(self, pred, actual):
+        correct = 0
+        for i in range(len(pred)):
+            if (pred[i] >= 0.5 and actual[i] == 1) or (pred[i] < 0.5 and actual[i] == 0):
+                correct += 1
+        return correct/len(pred)
     
     def run(self, dimensions, xvals, yvals, size=DEFAULT_SIZE, population=None, max_generations=MAX_GENERATIONS, crossover_rate=DEFAULT_CROSSOVER, mutation_rate=DEFAULT_MUTATION, gaussian_variance=GAUSSIAN_VARIANCE, log=True):
+        self.a = 5
         if not population:
             population = make_population_zeroweights(size, dimensions+1)
         norm_xs = normalize_x(xvals)
@@ -212,10 +222,11 @@ class LogisticalRegression:
         def fitness(genome):
             pred = self.predict_values(genome, norm_xs)
             actual = yvals
-            loss_value = self.loss(pred, actual)
+            accuracy = self.get_accuracy(pred, actual)
 
-            return 1/loss_value
+            return accuracy
         
         ga = RealValueGA(fitness, dimensions+1, crossover_rate, mutation_rate, gaussian_variance, log)
-        max_fitness = ga.run(population, max_generations)
+        max_fitness, best_genome = ga.run(population, max_generations)
+
         return max_fitness
