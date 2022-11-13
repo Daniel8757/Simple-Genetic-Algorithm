@@ -7,12 +7,16 @@ def dp_to_rdp(epsilon, alpha):
 def rdp_tp_dp(alpha, epsilon, delta):
     return (epsilon + math.log(1/delta)/(alpha-1), delta)
 
-def moments_accountant(eplison, delta, max_alpha, num_steps):
+# assume sensitivety one
+def gausmech_to_rdp(alpha, sigma):
+    return alpha/(2*(sigma**2))
+
+def moments_accountant(sigma, delta, max_alpha, num_steps):
     # candidate of alphas
     candidates = []
     for alpha in range(2, max_alpha+1):
         # add the rdp of one utility sample
-        candidates.append(dp_to_rdp(eplison, alpha))
+        candidates.append(gausmech_to_rdp(sigma, alpha))
     
     # compose over many samples for each alpha
     finished_candidates = []
@@ -24,3 +28,5 @@ def moments_accountant(eplison, delta, max_alpha, num_steps):
 
     # convert back to dp
     return rdp_tp_dp(best_candidate[1], best_candidate[0], delta)
+
+print(moments_accountant(1, 0.00001, 5000, 100))
