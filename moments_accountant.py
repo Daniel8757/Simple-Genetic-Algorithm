@@ -24,5 +24,3 @@ def moments_accountant(eplison, delta, max_alpha, num_steps):
 
     # convert back to dp
     return rdp_tp_dp(best_candidate[1], best_candidate[0], delta)
-
-print(moments_accountant(0.00001, 1, 5000, 100))
