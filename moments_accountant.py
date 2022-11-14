@@ -22,11 +22,13 @@ def moments_accountant(sigma, delta, max_alpha, num_steps):
     finished_candidates = []
     for alpha in range(2, max_alpha+1):
         finished_candidates.append((candidates[alpha-2]*num_steps, alpha))
+
+    # convert to dp
+    finished_dp = [rdp_tp_dp(alpha, epsilon, delta) for epsilon, alpha in finished_candidates]
     
     # get best candidate
-    best_candidate = min(finished_candidates)
+    best_candidate = min(finished_dp)
 
-    # convert back to dp
-    return rdp_tp_dp(best_candidate[1], best_candidate[0], delta)
+    return best_candidate
 
 print(moments_accountant(1, 0.00001, 5000, 100))
