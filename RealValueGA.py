@@ -1,6 +1,8 @@
 import numpy
 import random
 import math
+import heapq
+import numpy as np
 
 import yaml
 from copy import deepcopy
@@ -15,6 +17,9 @@ MAX_GENERATIONS = configs['max_generations']
 
 GAUSSIAN_VARIANCE = configs['gaussian_variance']
 
+ELITISM_NUMBER = configs['elitism_number']
+SELECTION_TYPE = configs['selection_type']
+
 def make_population_zeroweights(size, length):
     zero_weight_num = math.floor(size*0.05)
     random_weight_num = size-zero_weight_num
@@ -22,11 +27,11 @@ def make_population_zeroweights(size, length):
 
     for _ in range(random_weight_num):
         new_genome = [random.uniform(-1, 1) for _ in range(length)]
-        population.append(new_genome)
+        population.append(np.array(new_genome))
 
     for _ in range(zero_weight_num):
         new_genome = [0 for _ in range(length)]
-        population.append(new_genome)
+        population.append(np.array(new_genome))
 
     return population
 
@@ -44,7 +49,6 @@ class RealValueGA():
         self.gaussian_variance = gaussian_variance
         # choice to print things to console
         self.log = log
-
 
     def log_print(self, to_output):
         if self.log:
@@ -68,7 +72,23 @@ class RealValueGA():
             else:
                 new_genome_1.append(genome2[i])
                 new_genome_2.append(genome1[i])
-        return new_genome_1, new_genome_2
+        return np.array(new_genome_1), np.array(new_genome_2)
+
+    def elitism(self, curr_population):
+        # heapify the curr_population to get N best genomes
+        heapify_pops = list()
+        for pop in curr_population:
+            heapify_pops.append((-self.fitness(pop), tuple(pop)))
+        heapq.heapify(heapify_pops)
+
+        best_pops = list()
+        for _ in range(ELITISM_NUMBER):
+            _, pop = heapq.heappop(heapify_pops)
+            best_pops.append(list(pop))
+
+        non_selected = [list(pop) for _, pop in heapify_pops]
+
+        return self.fitness_proportion(curr_population)[:-ELITISM_NUMBER] + best_pops
 
     # mutate a genome
     def mutate(self, genome):
@@ -131,7 +151,7 @@ class RealValueGA():
         self.log_print("Genome length: {}".format(self.data_length))
         curr_population = population
         for generation in range(max_generations):
-            if generation % 20 == 0:
+            if generation % 10 == 0:
                 print("generation: {}".format(generation))
                 print("best fitness: {}".format(self.fitness(max(curr_population, key=self.fitness))))
                 print("average fitness: {}".format(self.evaluate_fitness(curr_population)))
@@ -140,7 +160,10 @@ class RealValueGA():
                 generation, 
                 self.evaluate_fitness(curr_population), max(curr_population, key=self.fitness))
             )
-            curr_population = self.fitness_proportion(curr_population)
+            if SELECTION_TYPE == "elitism":
+                curr_population = self.elitism(curr_population)
+            elif SELECTION_TYPE == "proportion":
+                curr_population = self.fitness_proportion(curr_population)
 
         # returns max fitness
         return self.fitness(max(curr_population, key=self.fitness)), max(curr_population, key=self.fitness)
@@ -198,12 +221,20 @@ class LogisticalRegression:
         return sum([loss_one(pred[i], actual[i]) for i in range(len(pred))])
 
     def get_probability(self, params, datapoint):
-        return 1 / (1 + math.e**(sum([params[i]*datapoint[i] for i in range(len(datapoint))]) + params[-1]))
+        d_arary = np.concatenate((datapoint, np.ones(1)))
+        s = np.dot(params, d_arary)
+
+        return 1 / (1 + math.e**(s))
 
     def predict_values(self, params, datapoints):
-        pred = []
-        for point in datapoints:
-            pred.append(self.get_probability(params, point))
+        d_datapoints = np.c_[datapoints, np.ones(len(datapoints))]
+        pred = np.matmul(d_datapoints, params)
+        for i in range(len(pred)):
+            pred[i] = 1 / (1 + math.e**(pred[i]))
+
+       # pred = np.zeros(len(datapoints))
+       # for i in range(len(datapoints)):
+       #     pred[i] = self.get_probability(params, datapoints[i])
         return pred
 
     def get_accuracy(self, pred, actual):
@@ -214,10 +245,10 @@ class LogisticalRegression:
         return correct/len(pred)
     
     def run(self, dimensions, xvals, yvals, size=DEFAULT_SIZE, population=None, max_generations=MAX_GENERATIONS, crossover_rate=DEFAULT_CROSSOVER, mutation_rate=DEFAULT_MUTATION, gaussian_variance=GAUSSIAN_VARIANCE, log=True):
-        self.a = 5
         if not population:
             population = make_population_zeroweights(size, dimensions+1)
-        norm_xs = normalize_x(xvals)
+        # norm_xs = normalize_x(xvals)
+        norm_xs = np.array(xvals)
 
         def fitness(genome):
             pred = self.predict_values(genome, norm_xs)
@@ -230,3 +261,5 @@ class LogisticalRegression:
         max_fitness, best_genome = ga.run(population, max_generations)
 
         return max_fitness
+
+
