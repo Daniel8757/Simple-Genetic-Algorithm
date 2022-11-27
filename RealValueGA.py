@@ -75,18 +75,21 @@ class RealValueGA():
         return np.array(new_genome_1), np.array(new_genome_2)
 
     def elitism(self, curr_population):
-        # heapify the curr_population to get N best genomes
         heapify_pops = list()
         for pop in curr_population:
-            heapify_pops.append((-self.fitness(pop), tuple(pop)))
-        heapq.heapify(heapify_pops)
+            heapify_pops.append((self.fitness(pop), tuple(pop)))
 
+        best_pops_unparsed = heapq.nlargest(ELITISM_NUMBER, heapify_pops)
         best_pops = list()
-        for _ in range(ELITISM_NUMBER):
-            _, pop = heapq.heappop(heapify_pops)
+        for _, pop in best_pops_unparsed:
             best_pops.append(list(pop))
+        
+        # heapq.heapify(heapify_pops)
 
-        non_selected = [list(pop) for _, pop in heapify_pops]
+        # best_pops = list()
+        # for _ in range(ELITISM_NUMBER):
+        #     _, pop = heapq.heappop(heapify_pops)
+        #     best_pops.append(list(pop))
 
         return self.fitness_proportion(curr_population)[:-ELITISM_NUMBER] + best_pops
 
